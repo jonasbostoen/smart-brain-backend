@@ -2,106 +2,36 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt-nodejs');
 const cors = require('cors');
-
 const knex = require('knex');
+
+const signin = require('./controllers/signin');
+const register = require('./controllers/register');
+const image = require('./controllers/image');
 
 const db = knex({
   client: 'pg',
   connection: {
     host: '127.0.0.1',
-    user: 'YOUR_USERNAME',
-    password: 'YOUR_PASSWORD',
-    database: 'YOUR_DATABASE'
+    user: 'jonasbostoen',
+    password: 'Net4All!',
+    database: 'smart-brain'
   }
 });
-
 
 const app = express();
 
 app.use(bodyParser.json());
 app.use(cors());
 
+app.get('/', (req, res) => { res.send(database.users) });
+app.post('/signin', (req, res) => { signin.handleSignin(req, res, db, bcrypt) });
+app.post('/register', (req, res) => { register.handleRegister(req, res, db, bcrypt) });
+app.get('/profile/:id', (req, res) => { profile.handleProfile(req, res, db) });
+app.put('/image', (req, res) => { image.handleImage(req, res, db) });
+app.post('/imageurl', (req, res) => { image.handleApiCall(req, res) });
 
-app.get('/', (req, res) => {
-  res.send(database.users);
-});
+const PORT = process.env.PORT || 8080;
 
-app.post('/signin', (req, res) => {
-  db.select('email', 'hash').from('login')
-    .where('email', '=', req.body.email)
-    .then(data => {
-      const isValid = bcrypt.compareSync(req.body.password, data[0].hash)
-      if (isValid) {
-        return db.select('*').from('users')
-          .where('email', '=', req.body.email)
-          .then(user => {
-            res.json(user[0]);
-          })
-          .catch(err => res.status(400).json('unable to get user'))
-      } else {
-        res.status(400).json('wrong credentials')
-      }
-    })
-    .catch(err => res.status(400).json('wrong credentials'))
-});
-
-app.post('/register', (req, res) => {
-  const { email, name, password } = req.body;
-  const hash = bcrypt.hashSync(password);
-  db.transaction(trx => {
-    trx.insert({
-      hash: hash,
-      email: email
-    })
-    .into('login')
-    .returning('email')
-    .then(loginEmail => {
-      return trx('users')
-        .returning('*')
-        .insert({
-          email: loginEmail[0],
-          name: name,
-          joined: new Date()
-        }).then(user => {
-          res.json(user[0]);
-        })
-        .catch(err => res.status(400).json('unable to register'))
-    })
-    .then(trx.commit)
-    .catch(trx.rollback)
-  })
-});
-
-app.get('/profile/:id', (req, res) => {
-  const { id } = req.params;
-  let found = false;
-
-  db.select('*').from('users').where({
-    id: id
-  }).then(user => {
-    if (user.length) {
-      res.json(user[0])
-    } else {
-      res.status(400).json('Not found');
-    }
-  })
-});
-
-app.put('/image', (req, res) => {
-  const { id } = req.body;
-  db('users').where('id', '=', id)
-    .increment('entries', 1)
-    .returning('entries')
-    .then(entries => {
-      res.json(entries[0])
-    })
-    .catch(err => res.status(400).json('unable to get entries'))
-});
-
-
-
-port = process.env.PORT || 8080;
-
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
